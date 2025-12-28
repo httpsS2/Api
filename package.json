@@ -13,7 +13,7 @@
     "canvas",
     "documentos"
   ],
-  "author": "Tu Nombre",
+  "author": "httpsS2",
   "license": "MIT",
   "dependencies": {
     "canvas": "^2.11.2"
@@ -22,6 +22,6 @@
     "vercel": "^33.0.0"
   },
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   }
 }
