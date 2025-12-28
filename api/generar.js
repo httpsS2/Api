@@ -1,4 +1,4 @@
-import Jimp from 'jimp';
+import { createCanvas, loadImage } from 'canvas';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -7,6 +7,8 @@ const __dirname = dirname(__filename);
 
 export default async function handler(req, res) {
     try {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        
         if (req.method !== 'GET') {
             return res.status(405).json({ error: 'Método no permitido' });
         }
@@ -32,25 +34,56 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log('📝 Generando documento para:', nombres, apellidos);
+        console.log('🎨 Iniciando generación...');
 
         const plantillaPath = join(__dirname, '..', 'plantillas', 'base.png');
-        const imagen = await Jimp.read(plantillaPath);
+        console.log('📂 Ruta plantilla:', plantillaPath);
+        
+        const plantilla = await loadImage(plantillaPath);
+        console.log('✅ Plantilla cargada:', plantilla.width, 'x', plantilla.height);
 
-        console.log('✅ Plantilla cargada:', imagen.bitmap.width, 'x', imagen.bitmap.height);
+        const canvas = createCanvas(plantilla.width, plantilla.height);
+        const ctx = canvas.getContext('2d');
 
-        const font22 = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK); 
-        const font20 = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK); 
+        ctx.drawImage(plantilla, 0, 0);
+        console.log('✅ Plantilla dibujada en canvas');
 
-        console.log('✅ Fuentes cargadas');
+        ctx.fillStyle = '#000000';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
 
         if (foto_url) {
             try {
-                const foto = await Jimp.read(foto_url);
+                console.log('📸 Cargando foto:', foto_url);
+                const foto = await loadImage(foto_url);
                 
-                foto.cover(222, 247);
-                
-                imagen.composite(foto, 47, 40);
+                const fotoX = 47;
+                const fotoY = 40;
+                const fotoWidth = 222;
+                const fotoHeight = 247;
+
+                let drawWidth = fotoWidth;
+                let drawHeight = fotoHeight;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                const imgRatio = foto.width / foto.height;
+                const boxRatio = fotoWidth / fotoHeight;
+
+                if (imgRatio > boxRatio) {
+                    drawWidth = fotoHeight * imgRatio;
+                    offsetX = (drawWidth - fotoWidth) / 2;
+                } else {
+                    drawHeight = fotoWidth / imgRatio;
+                    offsetY = (drawHeight - fotoHeight) / 2;
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(fotoX, fotoY, fotoWidth, fotoHeight);
+                ctx.clip();
+                ctx.drawImage(foto, fotoX - offsetX, fotoY - offsetY, drawWidth, drawHeight);
+                ctx.restore();
                 
                 console.log('✅ Foto agregada');
             } catch (error) {
@@ -58,41 +91,51 @@ export default async function handler(req, res) {
             }
         }
 
-        imagen.print(font22, 325, 50, nombres.toUpperCase());
-        imagen.print(font22, 670, 50, nuip);
+        console.log('📝 Agregando textos...');
 
-        imagen.print(font22, 325, 124, apellidos.toUpperCase());
+        ctx.font = 'bold 22px Arial, sans-serif';
+        ctx.fillText(nombres.toUpperCase(), 325, 68);
+        console.log('✅ Nombres:', nombres);
 
-        imagen.print(font20, 325, 200, nacionalidad);
-        imagen.print(font20, 540, 200, estatura);
-        imagen.print(font20, 667, 200, sexo);
+        ctx.fillText(nuip, 670, 68);
 
-        imagen.print(font20, 325, 262, fecha_nacimiento);
-        imagen.print(font20, 542, 262, grupo_sanguineo);
+        ctx.fillText(apellidos.toUpperCase(), 325, 142);
+        console.log('✅ Apellidos:', apellidos);
 
-        imagen.print(font20, 325, 324, lugar_nacimiento);
+        ctx.font = '20px Arial, sans-serif';
 
-        imagen.print(font20, 325, 386, fecha_expiracion);
+        ctx.fillText(nacionalidad, 325, 216);
+        ctx.fillText(estatura, 540, 216);
+        ctx.fillText(sexo, 667, 216);
 
-        console.log('✅ Textos agregados');
+        ctx.fillText(fecha_nacimiento, 325, 278);
+        ctx.fillText(grupo_sanguineo, 542, 278);
 
-        const buffer = await imagen.getBufferAsync(Jimp.MIME_PNG);
+        ctx.fillText(lugar_nacimiento, 325, 340);
 
-        console.log('✅ Buffer generado:', buffer.length, 'bytes');
+        ctx.fillText(fecha_expiracion, 325, 402);
+
+        console.log('✅ Todos los textos agregados');
+
+        const buffer = canvas.toBuffer('image/png');
+        console.log('✅ Buffer creado:', buffer.length, 'bytes');
 
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Cache-Control', 'public, max-age=3600');
         res.status(200).send(buffer);
 
-        console.log('✅ Imagen enviada');
+        console.log('✅ Imagen enviada correctamente');
 
     } catch (error) {
-        console.error('❌ Error completo:', error);
+        console.error('❌ ERROR COMPLETO:', error);
+        console.error('Mensaje:', error.message);
         console.error('Stack:', error.stack);
+        console.error('Código:', error.code);
         
         res.status(500).json({ 
             error: 'Error al generar imagen',
             detalles: error.message,
+            codigo: error.code,
             tipo: error.name
         });
     }
