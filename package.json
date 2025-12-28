@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "sharp": "^0.33.5",
-    "@resvg/resvg-js": "^2.6.2"
+    "jimp": "^0.22.12"
   },
   "engines": {
     "node": "20.x"
