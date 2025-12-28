@@ -35,8 +35,14 @@ export default async function handler(req, res) {
         const plantillaPath = join(__dirname, '..', 'plantillas', 'base.png');
         const plantillaBuffer = readFileSync(plantillaPath);
 
+        const metadata = await sharp(plantillaBuffer).metadata();
+        const width = metadata.width;
+        const height = metadata.height;
+
+        console.log(`📐 Dimensiones de plantilla: ${width}x${height}`);
+
         const svg = `
-        <svg width="800" height="600">
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
           <!-- TEXTOS -->
           <text x="325" y="68" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#000000">${nombres.toUpperCase()}</text>
           <text x="670" y="68" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#000000">${nuip}</text>
@@ -76,14 +82,16 @@ export default async function handler(req, res) {
                         position: 'center'
                     })
                     .toBuffer();
-
+                
                 composites.unshift({
                     input: fotoProcessed,
                     top: 40,
                     left: 47
                 });
+
+                console.log('✅ Foto procesada y agregada');
             } catch (error) {
-                console.error('Error procesando foto:', error);
+                console.error('⚠️ Error procesando foto:', error.message);
             }
         }
 
@@ -92,12 +100,14 @@ export default async function handler(req, res) {
             .png()
             .toBuffer();
 
+        console.log('✅ Imagen generada correctamente');
+
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Cache-Control', 'public, max-age=3600');
         res.status(200).send(resultado);
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ Error:', error);
         res.status(500).json({ 
             error: 'Error al generar imagen',
             detalles: error.message
