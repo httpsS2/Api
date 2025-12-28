@@ -7,6 +7,14 @@ const __dirname = dirname(__filename);
 
 export default async function handler(req, res) {
     try {
+        // Configurar CORS
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        
+        if (req.method === 'OPTIONS') {
+            return res.status(200).end();
+        }
+
         if (req.method !== 'GET') {
             return res.status(405).json({ 
                 error: 'Método no permitido. Usa GET' 
@@ -35,6 +43,8 @@ export default async function handler(req, res) {
         }
 
         const plantillaPath = join(__dirname, '..', 'plantillas', 'base.png');
+        console.log('📂 Ruta plantilla:', plantillaPath);
+        
         const plantilla = await loadImage(plantillaPath);
         
         const canvas = createCanvas(plantilla.width, plantilla.height);
@@ -78,7 +88,7 @@ export default async function handler(req, res) {
                 ctx.restore();
                 
             } catch (error) {
-                console.error('Error cargando foto:', error);
+                console.error('⚠️ Error cargando foto:', error.message);
             }
         }
 
@@ -104,9 +114,12 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('❌ Error completo:', error);
+        console.error('Stack:', error.stack);
+        
         res.status(500).json({ 
             error: 'Error al generar la imagen',
-            detalles: error.message
+            detalles: error.message,
+            tipo: error.name
         });
     }
 }
