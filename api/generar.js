@@ -1,4 +1,5 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import sharp from 'sharp';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -12,95 +13,94 @@ export default async function handler(req, res) {
         }
 
         const {
-            nombres = 'TEST',
-            apellidos = 'PRUEBA',
-            nuip = '000',
-            nacionalidad = 'TEST',
-            estatura = '0',
-            sexo = 'M',
-            fecha_nacimiento = '00/00/0000',
-            grupo_sanguineo = 'O+',
-            lugar_nacimiento = 'TEST',
-            fecha_expiracion = '00/00/0000',
+            nombres = '',
+            apellidos = '',
+            nuip = '',
+            nacionalidad = '',
+            estatura = '',
+            sexo = '',
+            fecha_nacimiento = '',
+            grupo_sanguineo = '',
+            lugar_nacimiento = '',
+            fecha_expiracion = '',
             foto_url = null
         } = req.query;
 
-        console.log('📊 Parámetros recibidos:', { nombres, apellidos, nuip });
-
-        const plantillaPath = join(__dirname, '..', 'plantillas', 'base.png');
-        console.log('📂 Ruta plantilla:', plantillaPath);
-        
-        let plantilla;
-        try {
-            plantilla = await loadImage(plantillaPath);
-            console.log('✅ Plantilla cargada:', plantilla.width, 'x', plantilla.height);
-        } catch (err) {
-            console.error('❌ Error cargando plantilla:', err);
-            return res.status(500).json({ 
-                error: 'No se pudo cargar la plantilla',
-                ruta: plantillaPath,
-                detalles: err.message 
+        if (!nombres || !apellidos) {
+            return res.status(400).json({ 
+                error: 'Los parámetros "nombres" y "apellidos" son obligatorios'
             });
         }
-        
-        const canvas = createCanvas(plantilla.width, plantilla.height);
-        const ctx = canvas.getContext('2d');
 
-        ctx.drawImage(plantilla, 0, 0);
-        console.log('✅ Plantilla dibujada');
+        const plantillaPath = join(__dirname, '..', 'plantillas', 'base.png');
+        const plantillaBuffer = readFileSync(plantillaPath);
 
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-        ctx.fillRect(300, 50, 400, 400);
-        console.log('✅ Rectángulo rojo agregado');
+        const svg = `
+        <svg width="800" height="600">
+          <!-- TEXTOS -->
+          <text x="325" y="68" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#000000">${nombres.toUpperCase()}</text>
+          <text x="670" y="68" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#000000">${nuip}</text>
+          <text x="325" y="142" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#000000">${apellidos.toUpperCase()}</text>
+          
+          <text x="325" y="216" font-family="Arial, sans-serif" font-size="20" fill="#000000">${nacionalidad}</text>
+          <text x="540" y="216" font-family="Arial, sans-serif" font-size="20" fill="#000000">${estatura}</text>
+          <text x="667" y="216" font-family="Arial, sans-serif" font-size="20" fill="#000000">${sexo}</text>
+          
+          <text x="325" y="278" font-family="Arial, sans-serif" font-size="20" fill="#000000">${fecha_nacimiento}</text>
+          <text x="542" y="278" font-family="Arial, sans-serif" font-size="20" fill="#000000">${grupo_sanguineo}</text>
+          
+          <text x="325" y="340" font-family="Arial, sans-serif" font-size="20" fill="#000000">${lugar_nacimiento}</text>
+          <text x="325" y="402" font-family="Arial, sans-serif" font-size="20" fill="#000000">${fecha_expiracion}</text>
+        </svg>
+        `;
 
-        ctx.fillStyle = '#FF0000';
-        ctx.textAlign = 'left';
+        const svgBuffer = Buffer.from(svg);
 
-        ctx.font = 'bold 40px Arial';
-        ctx.fillText(`NOMBRES: ${nombres.toUpperCase()}`, 325, 100);
-        console.log('✅ Nombre dibujado:', nombres);
-        
-        ctx.fillText(`NUIP: ${nuip}`, 670, 100);
-        ctx.fillText(`APELLIDOS: ${apellidos.toUpperCase()}`, 325, 180);
-        
-        ctx.font = 'bold 30px Arial';
-        ctx.fillText(`NACION: ${nacionalidad}`, 325, 260);
-        ctx.fillText(`EST: ${estatura}`, 540, 260);
-        ctx.fillText(`SEXO: ${sexo}`, 667, 260);
-        ctx.fillText(`F.NAC: ${fecha_nacimiento}`, 325, 330);
-        ctx.fillText(`G.S: ${grupo_sanguineo}`, 542, 330);
-        ctx.fillText(`LUGAR: ${lugar_nacimiento}`, 325, 400);
-        ctx.fillText(`EXPIRA: ${fecha_expiracion}`, 325, 470);
+        let composites = [
+            {
+                input: svgBuffer,
+                top: 0,
+                left: 0
+            }
+        ];
 
-        console.log('✅ Todos los textos dibujados');
-        
         if (foto_url) {
             try {
-                const foto = await loadImage(foto_url);
-                ctx.drawImage(foto, 47, 40, 222, 247);
-                console.log('✅ Foto agregada');
+                const fotoResponse = await fetch(foto_url);
+                const fotoArrayBuffer = await fotoResponse.arrayBuffer();
+                const fotoBuffer = Buffer.from(fotoArrayBuffer);
+
+                const fotoProcessed = await sharp(fotoBuffer)
+                    .resize(222, 247, {
+                        fit: 'cover',
+                        position: 'center'
+                    })
+                    .toBuffer();
+
+                composites.unshift({
+                    input: fotoProcessed,
+                    top: 40,
+                    left: 47
+                });
             } catch (error) {
-                console.error('⚠️ Error con foto:', error.message);
+                console.error('Error procesando foto:', error);
             }
         }
 
-        const buffer = canvas.toBuffer('image/png');
-        console.log('✅ Buffer creado, tamaño:', buffer.length, 'bytes');
-        
+        const resultado = await sharp(plantillaBuffer)
+            .composite(composites)
+            .png()
+            .toBuffer();
+
         res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.status(200).send(buffer);
-        
-        console.log('✅ Imagen enviada correctamente');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.status(200).send(resultado);
 
     } catch (error) {
-        console.error('❌ Error general:', error);
-        console.error('Stack:', error.stack);
-        
+        console.error('Error:', error);
         res.status(500).json({ 
             error: 'Error al generar imagen',
-            detalles: error.message,
-            stack: error.stack
+            detalles: error.message
         });
     }
 }
