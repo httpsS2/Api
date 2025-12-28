@@ -7,119 +7,100 @@ const __dirname = dirname(__filename);
 
 export default async function handler(req, res) {
     try {
-        // Configurar CORS
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        
-        if (req.method === 'OPTIONS') {
-            return res.status(200).end();
-        }
-
         if (req.method !== 'GET') {
-            return res.status(405).json({ 
-                error: 'Método no permitido. Usa GET' 
-            });
+            return res.status(405).json({ error: 'Método no permitido' });
         }
 
         const {
-            nombres = '',
-            apellidos = '',
-            nuip = '',
-            nacionalidad = '',
-            estatura = '',
-            sexo = '',
-            fecha_nacimiento = '',
-            grupo_sanguineo = '',
-            lugar_nacimiento = '',
-            fecha_expiracion = '',
+            nombres = 'TEST',
+            apellidos = 'PRUEBA',
+            nuip = '000',
+            nacionalidad = 'TEST',
+            estatura = '0',
+            sexo = 'M',
+            fecha_nacimiento = '00/00/0000',
+            grupo_sanguineo = 'O+',
+            lugar_nacimiento = 'TEST',
+            fecha_expiracion = '00/00/0000',
             foto_url = null
         } = req.query;
 
-        if (!nombres || !apellidos) {
-            return res.status(400).json({ 
-                error: 'Los parámetros "nombres" y "apellidos" son obligatorios',
-                ejemplo: '/api/generar?nombres=Juan&apellidos=Perez&nuip=12345678&nacionalidad=Colombiana&estatura=175&sexo=M&fecha_nacimiento=01/01/1990&grupo_sanguineo=O+&lugar_nacimiento=Bogota&fecha_expiracion=01/01/2030'
-            });
-        }
+        console.log('📊 Parámetros recibidos:', { nombres, apellidos, nuip });
 
         const plantillaPath = join(__dirname, '..', 'plantillas', 'base.png');
         console.log('📂 Ruta plantilla:', plantillaPath);
         
-        const plantilla = await loadImage(plantillaPath);
+        let plantilla;
+        try {
+            plantilla = await loadImage(plantillaPath);
+            console.log('✅ Plantilla cargada:', plantilla.width, 'x', plantilla.height);
+        } catch (err) {
+            console.error('❌ Error cargando plantilla:', err);
+            return res.status(500).json({ 
+                error: 'No se pudo cargar la plantilla',
+                ruta: plantillaPath,
+                detalles: err.message 
+            });
+        }
         
         const canvas = createCanvas(plantilla.width, plantilla.height);
         const ctx = canvas.getContext('2d');
 
         ctx.drawImage(plantilla, 0, 0);
+        console.log('✅ Plantilla dibujada');
 
-        ctx.fillStyle = '#000000';
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.fillRect(300, 50, 400, 400);
+        console.log('✅ Rectángulo rojo agregado');
+
+        ctx.fillStyle = '#FF0000';
         ctx.textAlign = 'left';
 
-        const fotoX = 47;
-        const fotoY = 40;
-        const fotoWidth = 222;
-        const fotoHeight = 247;
+        ctx.font = 'bold 40px Arial';
+        ctx.fillText(`NOMBRES: ${nombres.toUpperCase()}`, 325, 100);
+        console.log('✅ Nombre dibujado:', nombres);
+        
+        ctx.fillText(`NUIP: ${nuip}`, 670, 100);
+        ctx.fillText(`APELLIDOS: ${apellidos.toUpperCase()}`, 325, 180);
+        
+        ctx.font = 'bold 30px Arial';
+        ctx.fillText(`NACION: ${nacionalidad}`, 325, 260);
+        ctx.fillText(`EST: ${estatura}`, 540, 260);
+        ctx.fillText(`SEXO: ${sexo}`, 667, 260);
+        ctx.fillText(`F.NAC: ${fecha_nacimiento}`, 325, 330);
+        ctx.fillText(`G.S: ${grupo_sanguineo}`, 542, 330);
+        ctx.fillText(`LUGAR: ${lugar_nacimiento}`, 325, 400);
+        ctx.fillText(`EXPIRA: ${fecha_expiracion}`, 325, 470);
 
+        console.log('✅ Todos los textos dibujados');
+        
         if (foto_url) {
             try {
                 const foto = await loadImage(foto_url);
-                
-                let drawWidth = fotoWidth;
-                let drawHeight = fotoHeight;
-                let offsetX = 0;
-                let offsetY = 0;
-
-                const imgRatio = foto.width / foto.height;
-                const boxRatio = fotoWidth / fotoHeight;
-
-                if (imgRatio > boxRatio) {
-                    drawWidth = fotoHeight * imgRatio;
-                    offsetX = (drawWidth - fotoWidth) / 2;
-                } else {
-                    drawHeight = fotoWidth / imgRatio;
-                    offsetY = (drawHeight - fotoHeight) / 2;
-                }
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(fotoX, fotoY, fotoWidth, fotoHeight);
-                ctx.clip();
-                ctx.drawImage(foto, fotoX - offsetX, fotoY - offsetY, drawWidth, drawHeight);
-                ctx.restore();
-                
+                ctx.drawImage(foto, 47, 40, 222, 247);
+                console.log('✅ Foto agregada');
             } catch (error) {
-                console.error('⚠️ Error cargando foto:', error.message);
+                console.error('⚠️ Error con foto:', error.message);
             }
         }
 
-        ctx.font = '22px Arial';
-        ctx.fillText(nombres.toUpperCase(), 325, 68);
-        ctx.fillText(nuip, 670, 68);
-        ctx.fillText(apellidos.toUpperCase(), 325, 142);
-        
-        ctx.font = '20px Arial';
-        ctx.fillText(nacionalidad, 325, 216);
-        ctx.fillText(estatura, 540, 216);
-        ctx.fillText(sexo, 667, 216);
-        ctx.fillText(fecha_nacimiento, 325, 278);
-        ctx.fillText(grupo_sanguineo, 542, 278);
-        ctx.fillText(lugar_nacimiento, 325, 340);
-        ctx.fillText(fecha_expiracion, 325, 402);
-
         const buffer = canvas.toBuffer('image/png');
+        console.log('✅ Buffer creado, tamaño:', buffer.length, 'bytes');
         
         res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Cache-Control', 'no-cache');
         res.status(200).send(buffer);
+        
+        console.log('✅ Imagen enviada correctamente');
 
     } catch (error) {
-        console.error('❌ Error completo:', error);
+        console.error('❌ Error general:', error);
         console.error('Stack:', error.stack);
         
         res.status(500).json({ 
-            error: 'Error al generar la imagen',
+            error: 'Error al generar imagen',
             detalles: error.message,
-            tipo: error.name
+            stack: error.stack
         });
     }
 }
