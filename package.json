@@ -2,12 +2,10 @@
   "name": "api-generador-documentos",
   "version": "1.0.0",
   "type": "module",
-  "description": "API para generar documentos personalizados",
-  "main": "api/generar.js",
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.58"
+    "canvas": "^2.11.2"
   },
   "engines": {
-    "node": "20.x"
+    "node": "18.x"
   }
 }
