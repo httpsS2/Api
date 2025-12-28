@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "jimp": "^0.22.12"
+    "canvas": "^2.11.2"
   },
   "engines": {
-    "node": "20.x"
+    "node": "18.x"
   }
 }
